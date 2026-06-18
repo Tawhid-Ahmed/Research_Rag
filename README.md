@@ -1,0 +1,130 @@
+# arXiv RAG Assistant
+
+[![CI](https://github.com/your-org/arxiv-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/arxiv-rag/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+A production-grade Retrieval-Augmented Generation (RAG) app that ingests arXiv
+AI/ML papers and answers questions with **inline citations**. Built like real
+software: typed, tested, linted, containerized, evaluated, traced, and deployed
+with a free live demo.
+
+> **Status:** scaffold in place. Ingestion, retrieval, LLM, API, UI, and the
+> eval harness are implemented in subsequent build steps (see
+> [`docs/PLAN.md`](../docs/PLAN.md)).
+
+## Features (target)
+
+- **Hybrid retrieval** — BM25 + dense (`sentence-transformers`) with a
+  cross-encoder reranker, plus an ablation showing metric gains.
+- **Citations + guardrail** — answers cite source page/section and refuse to
+  answer when retrieval confidence is low.
+- **Streaming answers** with token/cost tracking and Langfuse tracing.
+- **Pluggable LLMs** — OpenAI, Anthropic, Hugging Face Inference, or local
+  Ollama via a single provider abstraction. Free/open default path costs $0.
+- **Eval harness** — retrieval metrics (recall@k, MRR, hit-rate) + RAGAS answer
+  quality, with a before/after report.
+- **Ops** — one-command `docker compose up`, GitHub Actions CI, pinned deps, and
+  a free Hugging Face Spaces live demo.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph ingest [Ingestion Pipeline]
+    arxiv[arXiv API] --> parse[Parse PDFs]
+    parse --> chunk[Token-aware Chunking]
+    chunk --> embed[Embed - sentence-transformers]
+    embed --> store[(Vector Store: Chroma / pgvector)]
+  end
+
+  subgraph serve [FastAPI Backend]
+    query[/query endpoint/] --> retrieve[Hybrid Retrieval: BM25 + Dense]
+    store --> retrieve
+    retrieve --> rerank[Cross-Encoder Reranker]
+    rerank --> gen[LLM Provider Abstraction]
+    gen --> answer[Answer + Citations - streamed]
+  end
+
+  ui[Streamlit UI: Chat + Admin + Eval] --> query
+  gen -->|OpenAI / Anthropic / HF / Ollama| providers[LLM Providers]
+  evalh[Eval Harness: RAGAS + retrieval metrics] --> serve
+  trace[Langfuse tracing] -.-> serve
+```
+
+## Project layout
+
+```
+arxiv-rag/
+├─ app/
+│  ├─ config.py          # pydantic-settings configuration
+│  ├─ ingest/            # arXiv fetch, PDF parse, chunk, embed, index
+│  ├─ retrieval/         # BM25 + dense hybrid, cross-encoder reranker
+│  ├─ llm/               # provider abstraction (OpenAI/Anthropic/HF/Ollama)
+│  └─ api/               # FastAPI app: /query, /ingest, /health
+├─ ui/                   # Streamlit app (Chat, Admin, Eval tabs)
+├─ eval/                 # golden Q/A set + metrics + before/after report
+├─ tests/                # pytest unit + integration tests
+├─ huggingface/          # HF Spaces Dockerfile + README (live demo)
+├─ Dockerfile
+├─ docker-compose.yml    # api, ui, +pgvector, +ollama profiles
+├─ pyproject.toml        # tooling config + loose dep bounds
+├─ requirements.txt      # pinned runtime deps (source of truth)
+└─ requirements-dev.txt  # pinned dev/test deps
+```
+
+## Quickstart
+
+### Local (Python)
+
+```bash
+cd arxiv-rag
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt -r requirements-dev.txt
+cp .env.example .env                                # optional; defaults work
+
+# Run the API
+uvicorn app.api.main:app --reload
+# In another shell, run the UI
+streamlit run ui/app.py
+```
+
+### Docker Compose
+
+```bash
+cd arxiv-rag
+cp .env.example .env
+docker compose up                     # api + ui (free/open path, Chroma)
+docker compose --profile pgvector up  # add Postgres + pgvector
+docker compose --profile ollama up    # add local Ollama LLM
+```
+
+- API: http://localhost:8000 (`/health`, later `/query`, `/ingest`)
+- UI: http://localhost:8501
+
+## Configuration
+
+All settings are typed in [`app/config.py`](app/config.py) and read from
+environment variables / `.env`. See [`.env.example`](.env.example) for every
+option. The default path (`LLM_PROVIDER=huggingface`, `VECTOR_STORE=chroma`)
+requires no secrets.
+
+## Development
+
+```bash
+ruff check . && ruff format --check .   # lint + format
+mypy app                                # type check
+pytest --cov=app                        # tests
+```
+
+CI runs all of the above plus a Docker build on every push/PR
+(see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+## Live demo
+
+Deployed free on Hugging Face Spaces — see [`huggingface/`](huggingface/) for the
+Space Dockerfile and deployment notes. _(Link added once deployed.)_
+
+## License
+
+MIT
