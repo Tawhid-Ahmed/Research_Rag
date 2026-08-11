@@ -9,11 +9,7 @@ AI/ML papers and answers questions with **inline citations**. Built like real
 software: typed, tested, linted, containerized, evaluated, traced, and deployed
 with a free live demo.
 
-> **Status:** scaffold in place. Ingestion, retrieval, LLM, API, UI, and the
-> eval harness are implemented in subsequent build steps (see
-> [`docs/PLAN.md`](../docs/PLAN.md)).
-
-## Features (target)
+## Features
 
 - **Hybrid retrieval** — BM25 + dense (`sentence-transformers`) with a
   cross-encoder reranker, plus an ablation showing metric gains.
@@ -99,7 +95,7 @@ docker compose --profile pgvector up  # add Postgres + pgvector
 docker compose --profile ollama up    # add local Ollama LLM
 ```
 
-- API: http://localhost:8000 (`/health`, later `/query`, `/ingest`)
+- API: http://localhost:8000 — `/health` endpoint available today
 - UI: http://localhost:8501
 
 ## Configuration
