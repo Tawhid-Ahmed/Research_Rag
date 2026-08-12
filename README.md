@@ -79,6 +79,10 @@ python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\act
 pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env                                # optional; defaults work
 
+# Ingest a paper, then retrieve (working today)
+python -m app.ingest --ids 1706.03762 --max-results 1
+python -m app.retrieval --query "What is multi-head attention?"
+
 # Run the API
 uvicorn app.api.main:app --reload
 # In another shell, run the UI
