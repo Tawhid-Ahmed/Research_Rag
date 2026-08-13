@@ -39,6 +39,8 @@ def test_huggingface_stream_generate_yields_tokens_then_done(monkeypatch) -> Non
         temperature=0.1,
         max_tokens=64,
     )
+    assert provider.model_url.endswith("/dummy-model")
+    assert provider.model_url.startswith("https://router.huggingface.co/")
 
     def fake_stream(
         messages: list[ChatMessage],
