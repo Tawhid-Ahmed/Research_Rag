@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.llm.factory import build_provider
 from app.llm.interfaces import ChatProvider
 from app.llm.types import ChatMessage, GenerationConfig, StreamChunk
 
@@ -10,4 +11,5 @@ __all__ = [
     "ChatProvider",
     "GenerationConfig",
     "StreamChunk",
+    "build_provider",
 ]
