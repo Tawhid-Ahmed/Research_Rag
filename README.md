@@ -13,6 +13,8 @@ with a free live demo.
 
 - **Hybrid retrieval** — BM25 + dense (`sentence-transformers`) with a
   cross-encoder reranker, plus an ablation showing metric gains.
+- **Streamlit UI** — Chat streams answers with sources; Admin ingests papers;
+  Eval shows last-query retrieval stats (full RAGAS harness is a later step).
 - **Citations + guardrail** — answers cite source page/section and refuse to
   answer when retrieval confidence is low.
 - **Streaming answers** with token/cost tracking and Langfuse tracing.
@@ -93,8 +95,9 @@ uvicorn app.api.main:app --reload
 # curl -X POST http://localhost:8000/query -H "Content-Type: application/json" ^
 #   -d "{\"question\": \"What is multi-head attention?\"}"
 
-# In another shell, run the UI
+# In another shell, run the UI (Chat / Admin ingest / Eval stats)
 streamlit run ui/app.py
+# Set LLM_PROVIDER=ollama (and LLM_MODEL) in the API process if using local Ollama
 ```
 
 ### Docker Compose
@@ -108,7 +111,7 @@ docker compose --profile ollama up    # add local Ollama LLM
 ```
 
 - API: http://localhost:8000 — `/health`, `/ingest`, `/query` (SSE when `stream=true`)
-- UI: http://localhost:8501
+- UI: http://localhost:8501 — Chat (streaming + citations), Admin (ingest), Eval (last-query stats)
 
 ## Configuration
 
