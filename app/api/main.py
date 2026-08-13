@@ -1,4 +1,4 @@
-"""FastAPI application: health and ingest endpoints."""
+"""FastAPI application: health, ingest, and RAG query endpoints."""
 
 from __future__ import annotations
 
@@ -8,9 +8,17 @@ import logging
 from fastapi import FastAPI, HTTPException
 
 from app import __version__
-from app.api.deps import IngestPipelineDep
-from app.api.schemas import IngestRequest, IngestResponse
+from app.api.deps import IngestPipelineDep, LLMDep, RetrieverDep, SettingsDep
+from app.api.rag import (
+    REFUSAL_MESSAGE,
+    build_rag_messages,
+    confidence_from_hits,
+    hits_to_citations,
+    should_refuse,
+)
+from app.api.schemas import IngestRequest, IngestResponse, QueryRequest, QueryResponse
 from app.config import get_settings
+from app.llm.types import GenerationConfig
 
 logger = logging.getLogger(__name__)
 
@@ -53,4 +61,54 @@ async def ingest(body: IngestRequest, pipeline: IngestPipelineDep) -> IngestResp
         chunks_indexed=report.chunks_indexed,
         collection_count=report.collection_count,
         skipped=report.skipped,
+    )
+
+
+@app.post("/query", response_model=QueryResponse)
+async def query(
+    body: QueryRequest,
+    settings: SettingsDep,
+    retriever: RetrieverDep,
+    llm: LLMDep,
+) -> QueryResponse:
+    """Answer a question over the indexed corpus with citations and a confidence guardrail."""
+
+    question = body.question.strip()
+    if not question:
+        raise HTTPException(status_code=422, detail="question must not be empty")
+
+    result = await asyncio.to_thread(retriever.search, question)
+    hits = result.hits
+    if body.top_k is not None:
+        hits = hits[: body.top_k]
+
+    confidence = confidence_from_hits(hits)
+    citations = hits_to_citations(hits)
+    refused = should_refuse(confidence, settings.min_confidence_score) or not hits
+
+    if refused:
+        return QueryResponse(
+            question=question,
+            answer=REFUSAL_MESSAGE,
+            citations=citations,
+            refused=True,
+            confidence=confidence,
+            provider=settings.llm_provider.value,
+            model=settings.llm_model,
+        )
+
+    messages = build_rag_messages(question, hits)
+    gen_config = GenerationConfig(
+        temperature=settings.llm_temperature,
+        max_tokens=settings.llm_max_tokens,
+    )
+    answer = await llm.generate(messages, gen_config)
+    return QueryResponse(
+        question=question,
+        answer=answer,
+        citations=citations,
+        refused=False,
+        confidence=confidence,
+        provider=settings.llm_provider.value,
+        model=settings.llm_model,
     )
