@@ -83,6 +83,10 @@ cp .env.example .env                                # optional; defaults work
 python -m app.ingest --ids 1706.03762 --max-results 1
 python -m app.retrieval --query "What is multi-head attention?"
 
+# Smoke-test the configured LLM (default: Hugging Face)
+python -m app.llm --prompt "Say hello in one sentence."
+python -m app.llm --prompt "Say hello." --stream --sse
+
 # Run the API
 uvicorn app.api.main:app --reload
 # In another shell, run the UI
