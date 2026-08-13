@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 
 from fastapi import FastAPI, HTTPException
+from sse_starlette.sse import EventSourceResponse
 
 from app import __version__
 from app.api.deps import IngestPipelineDep, LLMDep, RetrieverDep, SettingsDep
@@ -15,8 +17,10 @@ from app.api.rag import (
     confidence_from_hits,
     hits_to_citations,
     should_refuse,
+    summarize_retrieval,
 )
 from app.api.schemas import IngestRequest, IngestResponse, QueryRequest, QueryResponse
+from app.api.streaming import iter_query_sse
 from app.config import get_settings
 from app.llm.types import GenerationConfig
 
@@ -64,14 +68,18 @@ async def ingest(body: IngestRequest, pipeline: IngestPipelineDep) -> IngestResp
     )
 
 
-@app.post("/query", response_model=QueryResponse)
+@app.post("/query", response_model=None)
 async def query(
     body: QueryRequest,
     settings: SettingsDep,
     retriever: RetrieverDep,
     llm: LLMDep,
-) -> QueryResponse:
-    """Answer a question over the indexed corpus with citations and a confidence guardrail."""
+) -> QueryResponse | EventSourceResponse:
+    """Answer a question over the indexed corpus with citations.
+
+    When ``stream=true``, returns Server-Sent Events:
+    ``meta`` → ``token``* → ``[DONE]``.
+    """
 
     question = body.question.strip()
     if not question:
@@ -86,22 +94,55 @@ async def query(
     citations = hits_to_citations(hits)
     refused = should_refuse(confidence, settings.min_confidence_score) or not hits
 
-    if refused:
-        return QueryResponse(
-            question=question,
-            answer=REFUSAL_MESSAGE,
-            citations=citations,
-            refused=True,
-            confidence=confidence,
-            provider=settings.llm_provider.value,
-            model=settings.llm_model,
-        )
-
-    messages = build_rag_messages(question, hits)
     gen_config = GenerationConfig(
         temperature=settings.llm_temperature,
         max_tokens=settings.llm_max_tokens,
     )
+    provider_name = settings.llm_provider.value
+    model_name = settings.llm_model
+
+    if refused:
+        answer = REFUSAL_MESSAGE
+        if body.stream:
+            return _stream_refused(
+                question=question,
+                answer=answer,
+                citations=citations,
+                confidence=confidence,
+                provider=provider_name,
+                model=model_name,
+                retrieval=summarize_retrieval(result),
+            )
+        return QueryResponse(
+            question=question,
+            answer=answer,
+            citations=citations,
+            refused=True,
+            confidence=confidence,
+            provider=provider_name,
+            model=model_name,
+        )
+
+    messages = build_rag_messages(question, hits)
+
+    if body.stream:
+        from app.llm.types import StreamChunk
+
+        async def token_source() -> AsyncIterator[StreamChunk]:
+            async for chunk in llm.stream_generate(messages, gen_config):
+                yield chunk
+
+        meta = {
+            "question": question,
+            "citations": [c.model_dump() for c in citations],
+            "refused": False,
+            "confidence": confidence,
+            "provider": provider_name,
+            "model": model_name,
+            "retrieval": summarize_retrieval(result),
+        }
+        return EventSourceResponse(iter_query_sse(meta=meta, token_stream=token_source()))
+
     answer = await llm.generate(messages, gen_config)
     return QueryResponse(
         question=question,
@@ -109,6 +150,36 @@ async def query(
         citations=citations,
         refused=False,
         confidence=confidence,
-        provider=settings.llm_provider.value,
-        model=settings.llm_model,
+        provider=provider_name,
+        model=model_name,
     )
+
+
+def _stream_refused(
+    *,
+    question: str,
+    answer: str,
+    citations: list,
+    confidence: float,
+    provider: str,
+    model: str,
+    retrieval: dict[str, int],
+) -> EventSourceResponse:
+    """Stream a refusal as meta + one token frame + DONE."""
+
+    from app.llm.types import StreamChunk
+
+    async def tokens() -> AsyncIterator[StreamChunk]:
+        yield StreamChunk(text=answer)
+        yield StreamChunk(done=True)
+
+    meta = {
+        "question": question,
+        "citations": [c.model_dump() for c in citations],
+        "refused": True,
+        "confidence": confidence,
+        "provider": provider,
+        "model": model,
+        "retrieval": retrieval,
+    }
+    return EventSourceResponse(iter_query_sse(meta=meta, token_stream=tokens()))

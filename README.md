@@ -87,8 +87,12 @@ python -m app.retrieval --query "What is multi-head attention?"
 python -m app.llm --prompt "Say hello in one sentence."
 python -m app.llm --prompt "Say hello." --stream --sse
 
-# Run the API
+# Run the API ( /health, /ingest, /query )
 uvicorn app.api.main:app --reload
+# Example:
+# curl -X POST http://localhost:8000/query -H "Content-Type: application/json" ^
+#   -d "{\"question\": \"What is multi-head attention?\"}"
+
 # In another shell, run the UI
 streamlit run ui/app.py
 ```
@@ -103,7 +107,7 @@ docker compose --profile pgvector up  # add Postgres + pgvector
 docker compose --profile ollama up    # add local Ollama LLM
 ```
 
-- API: http://localhost:8000 — `/health` endpoint available today
+- API: http://localhost:8000 — `/health`, `/ingest`, `/query` (SSE when `stream=true`)
 - UI: http://localhost:8501
 
 ## Configuration
