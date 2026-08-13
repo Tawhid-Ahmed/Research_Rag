@@ -14,14 +14,14 @@ with a free live demo.
 - **Hybrid retrieval** — BM25 + dense (`sentence-transformers`) with a
   cross-encoder reranker, plus an ablation showing metric gains.
 - **Streamlit UI** — Chat streams answers with sources; Admin ingests papers;
-  Eval shows last-query retrieval stats (full RAGAS harness is a later step).
+  Eval shows last-query stats plus the latest `python -m eval` report.
 - **Citations + guardrail** — answers cite source page/section and refuse to
   answer when retrieval confidence is low.
 - **Streaming answers** with token/cost tracking and Langfuse tracing.
 - **Pluggable LLMs** — OpenAI, Anthropic, Hugging Face Inference, or local
   Ollama via a single provider abstraction. Free/open default path costs $0.
-- **Eval harness** — retrieval metrics (recall@k, MRR, hit-rate) + RAGAS answer
-  quality, with a before/after report.
+- **Eval harness** — golden Q/A, retrieval ablation (dense vs hybrid vs
+  rerank: hit-rate / recall@k / MRR), optional RAGAS (`--with-ragas`).
 - **Ops** — one-command `docker compose up`, GitHub Actions CI, pinned deps, and
   a free Hugging Face Spaces live demo.
 
@@ -98,6 +98,9 @@ uvicorn app.api.main:app --reload
 # In another shell, run the UI (Chat / Admin ingest / Eval stats)
 streamlit run ui/app.py
 # Set LLM_PROVIDER=ollama (and LLM_MODEL) in the API process if using local Ollama
+
+# Retrieval ablation report (needs ingested papers; optional --with-ragas)
+python -m eval --report eval/reports/latest.md
 ```
 
 ### Docker Compose
@@ -111,7 +114,7 @@ docker compose --profile ollama up    # add local Ollama LLM
 ```
 
 - API: http://localhost:8000 — `/health`, `/ingest`, `/query` (SSE when `stream=true`)
-- UI: http://localhost:8501 — Chat (streaming + citations), Admin (ingest), Eval (last-query stats)
+- UI: http://localhost:8501 — Chat (streaming + citations), Admin (ingest), Eval (live stats + harness report)
 
 ## Configuration
 
