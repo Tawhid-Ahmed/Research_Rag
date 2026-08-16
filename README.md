@@ -1,3 +1,16 @@
+---
+title: arXiv RAG Assistant
+emoji: 📄
+colorFrom: indigo
+colorTo: blue
+sdk: gradio
+sdk_version: 5.9.1
+app_file: app.py
+pinned: false
+license: mit
+short_description: RAG over arXiv AI/ML papers with citations
+---
+
 # arXiv RAG Assistant
 
 [![CI](https://github.com/your-org/arxiv-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/arxiv-rag/actions/workflows/ci.yml)

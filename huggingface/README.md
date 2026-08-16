@@ -5,7 +5,7 @@ colorFrom: indigo
 colorTo: blue
 sdk: gradio
 sdk_version: 5.9.1
-app_file: gradio_app.py
+app_file: app.py
 pinned: false
 license: mit
 short_description: RAG over arXiv AI/ML papers with citations
