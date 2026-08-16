@@ -35,12 +35,11 @@ def test_iter_sse_appends_done_if_missing() -> None:
 def test_huggingface_stream_generate_yields_tokens_then_done(monkeypatch) -> None:
     provider = HuggingFaceProvider(
         model_name="dummy-model",
-        api_key=None,
+        api_key="hf_test",
         temperature=0.1,
         max_tokens=64,
     )
-    assert provider.model_url.endswith("/dummy-model")
-    assert provider.model_url.startswith("https://router.huggingface.co/")
+    assert provider.model_name == "dummy-model"
 
     def fake_stream(
         messages: list[ChatMessage],

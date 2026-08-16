@@ -52,6 +52,9 @@ def health(obs: ObservabilityDep) -> dict[str, str]:
         "version": __version__,
         "environment": cfg.environment,
         "langfuse": "enabled" if obs.enabled else "disabled",
+        "llm_provider": cfg.llm_provider.value,
+        "llm_model": cfg.llm_model,
+        "hf_token": "set" if cfg.huggingface_api_key else "missing",
     }
 
 
@@ -107,7 +110,13 @@ async def query(
         metadata={"stream": body.stream},
     )
 
-    result = await asyncio.to_thread(retriever.search, question)
+    try:
+        result = await asyncio.to_thread(retriever.search, question)
+    except Exception as exc:  # noqa: BLE001 - surface retrieval failures to the UI
+        logger.exception("retrieval failed")
+        trace.end(output=str(exc), metadata={"error": "retrieval"})
+        raise HTTPException(status_code=502, detail=f"retrieval failed: {exc}") from exc
+
     hits = result.hits
     if body.top_k is not None:
         hits = hits[: body.top_k]
@@ -191,7 +200,13 @@ async def query(
             )
         )
 
-    answer = await llm.generate(messages, gen_config)
+    try:
+        answer = await llm.generate(messages, gen_config)
+    except Exception as exc:  # noqa: BLE001 - LLM/auth/provider errors
+        logger.exception("llm generate failed")
+        trace.end(output=str(exc), metadata={"error": "llm"})
+        raise HTTPException(status_code=502, detail=f"llm failed: {exc}") from exc
+
     usage = compute_usage(
         messages=messages,
         answer=answer,
@@ -240,10 +255,17 @@ async def _traced_token_stream(
     answer_parts: list[str] = []
 
     async def token_source() -> AsyncIterator[StreamChunk]:
-        async for chunk in llm.stream_generate(messages, gen_config):
-            if chunk.text:
-                answer_parts.append(chunk.text)
-            yield chunk
+        try:
+            async for chunk in llm.stream_generate(messages, gen_config):
+                if chunk.text:
+                    answer_parts.append(chunk.text)
+                yield chunk
+        except Exception as exc:  # noqa: BLE001 - keep SSE open with a visible error
+            logger.exception("llm stream failed")
+            message = f"\n\n**LLM error:** {exc}"
+            answer_parts.append(message)
+            yield StreamChunk(text=message)
+            yield StreamChunk(done=True)
 
     async for frame in iter_query_sse(meta=meta, token_stream=token_source()):
         if frame.get("data") == DONE_SENTINEL:

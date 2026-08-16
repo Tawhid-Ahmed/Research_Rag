@@ -58,13 +58,18 @@ class Settings(BaseSettings):
 
     # --- LLM provider ------------------------------------------------------
     llm_provider: LLMProvider = Field(default=LLMProvider.HUGGINGFACE)
-    llm_model: str = Field(default="HuggingFaceH4/zephyr-7b-beta")
+    # Must be available on Hugging Face Inference Providers (chat-completions).
+    llm_model: str = Field(default="Qwen/Qwen2.5-7B-Instruct")
     llm_temperature: float = Field(default=0.1)
     llm_max_tokens: int = Field(default=1024)
 
     openai_api_key: str | None = Field(default=None)
     anthropic_api_key: str | None = Field(default=None)
-    huggingface_api_key: str | None = Field(default=None)
+    # HF Spaces often inject HF_TOKEN; accept both names.
+    huggingface_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("HUGGINGFACE_API_KEY", "HF_TOKEN"),
+    )
     ollama_base_url: str = Field(default="http://localhost:11434")
 
     # --- Embeddings & retrieval -------------------------------------------

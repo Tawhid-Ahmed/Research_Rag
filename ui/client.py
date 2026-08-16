@@ -64,7 +64,7 @@ class ApiClient:
         base_url: str | None = None,
         *,
         client: httpx.Client | None = None,
-        timeout: float = 120.0,
+        timeout: float = 300.0,
         ingest_timeout: float = 600.0,
     ) -> None:
         self.base_url = (base_url or api_base_url()).rstrip("/")

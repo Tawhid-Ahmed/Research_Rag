@@ -33,9 +33,11 @@ marked **Paid** and Streamlit may not appear — choose **Gradio → Blank**.
 
 | Name | Value |
 |------|--------|
-| `HUGGINGFACE_API_KEY` | free HF token ([create token](https://huggingface.co/settings/tokens)) |
+| `HUGGINGFACE_API_KEY` or `HF_TOKEN` | fine-grained HF token with **Make calls to Inference Providers** ([create token](https://huggingface.co/settings/tokens)) |
 | `LLM_PROVIDER` | `huggingface` |
-| `LLM_MODEL` | e.g. `HuggingFaceH4/zephyr-7b-beta` |
+| `LLM_MODEL` | e.g. `Qwen/Qwen2.5-7B-Instruct` (must be on [Inference Providers](https://huggingface.co/inference/models)) |
+
+After setting secrets, **Factory rebuild**. Confirm the status line shows `hf_token set`.
 
 Optional: `OPENAI_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`.
 

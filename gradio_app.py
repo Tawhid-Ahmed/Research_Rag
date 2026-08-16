@@ -79,7 +79,9 @@ def _health_markdown() -> str:
         return (
             f"**API** `{api_base_url()}` — "
             f"`{health.get('status', '?')}` · v{health.get('version', '?')} · "
-            f"langfuse `{health.get('langfuse', 'n/a')}`"
+            f"langfuse `{health.get('langfuse', 'n/a')}` · "
+            f"llm `{health.get('llm_provider', '?')}/{health.get('llm_model', '?')}` · "
+            f"hf_token `{health.get('hf_token', '?')}`"
         )
     except ApiError as exc:
         return f"**API error:** {exc}"
@@ -96,15 +98,13 @@ def _format_sources(citations: list[dict[str, Any]]) -> str:
 
 
 def chat(message: str, history: list[dict[str, str]]):
-    """Stream an answer for ``gr.ChatInterface``.
-
-    ChatInterface expects each yield to be the **assistant message string**
-    (not a full history list).
+    """Answer for ``gr.ChatInterface`` (assistant message string per yield).
 
     Intentionally **not** wrapped in ``@spaces.GPU``: chat only HTTP-calls the
-    local FastAPI sidecar. Running it on a ZeroGPU worker burns quota and the
-    worker often dies mid-SSE (``incomplete chunked read``). Ingest stays
-    GPU-decorated so ZeroGPU still detects a bound handler at startup.
+    local FastAPI sidecar. Ingest stays GPU-decorated for ZeroGPU startup.
+
+    On Hugging Face Spaces, prefer non-streaming ``/query`` — Gradio's httpx
+    client often loses chunked SSE bodies inside the container.
     """
 
     from ui.client import ApiClient, ApiError
@@ -126,10 +126,16 @@ def chat(message: str, history: list[dict[str, str]]):
             prefix = ""
         return prefix + (answer or "_Empty answer._") + _format_sources(citations)
 
-    answer = ""
-    citations: list[dict[str, Any]] = []
-    prefix = ""
+    prefer_json = bool(os.getenv("SPACE_ID") or os.getenv("SPACES_ZERO_GPU"))
+
     try:
+        if prefer_json:
+            yield _render(client.query(message))
+            return
+
+        answer = ""
+        citations: list[dict[str, Any]] = []
+        prefix = ""
         for event in client.stream_query(message):
             kind = event.get("type")
             if kind == "meta":
@@ -224,7 +230,8 @@ def build_demo():
 
         gr.Markdown(
             "_Free Gradio ZeroGPU Space: FastAPI runs beside this UI. "
-            "Set `HUGGINGFACE_API_KEY` in Space secrets for the default LLM._"
+            "Set `HUGGINGFACE_API_KEY` or `HF_TOKEN` (Inference Providers "
+            "permission) and optionally `LLM_MODEL` in Space secrets._"
         )
     return demo
 
