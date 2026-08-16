@@ -1,5 +1,6 @@
-# Pinned runtime dependencies for the arXiv RAG Assistant.
-# Python 3.10+. Keep in sync with pyproject.toml [project.dependencies].
+# Streamlit Community Cloud runtime (space_app.py).
+# REQUIRED: set Advanced settings → Python version → 3.12
+# (3.13/3.14 lack wheels for tiktoken / pydantic-core / tokenizers used here.)
 
 # --- Web API ---
 fastapi==0.115.6
@@ -9,39 +10,30 @@ pydantic-settings==2.7.1
 python-multipart==0.0.20
 sse-starlette==2.1.3
 
-# --- UI ---
+# --- UI (Streamlit only; Gradio/eval omitted for Cloud) ---
 streamlit==1.41.1
-gradio==5.9.1
-# Do not pin `spaces` — HF Gradio/ZeroGPU Spaces inject their own version
-# (e.g. spaces==0.51.1). Pinning conflicts with that install line.
 
-# --- Ingestion: arXiv fetch + PDF parsing + chunking ---
+# --- Ingestion ---
 arxiv==2.1.3
 pypdf==5.1.0
 tiktoken==0.8.0
 httpx==0.28.1
 
-# --- Embeddings, vector store, retrieval, reranking ---
+# --- Embeddings / vector store / retrieval ---
+# CPU torch first so pip does not pull multi-GB CUDA wheels on Cloud.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.6.0+cpu
 sentence-transformers==3.3.1
 chromadb==0.5.23
 rank-bm25==0.2.2
 
-# --- Optional Postgres + pgvector profile ---
-# 3.2.3 has no wheels for Python 3.13+/3.14 (Streamlit Cloud default).
-psycopg[binary]==3.2.13
-pgvector==0.3.6
-
-# --- LLM providers (optional paths; imported lazily) ---
+# --- LLM providers (lazy imports) ---
 openai==1.59.6
 anthropic==0.42.0
 huggingface-hub==0.27.0
 
-# --- Observability / tracing ---
+# --- Observability (optional; safe if unset) ---
 langfuse==2.57.1
-
-# --- Evaluation harness ---
-ragas==0.2.9
-datasets==3.2.0
 
 # --- Utilities ---
 tenacity==9.0.0
