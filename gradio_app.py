@@ -1,8 +1,8 @@
-"""Free Hugging Face Spaces entry (Gradio SDK).
+"""Free Hugging Face Spaces entry (Gradio SDK + ZeroGPU).
 
-Your HF account shows Docker as Paid and no Streamlit option — Gradio is the
-free path. This file must NOT be named ``app.py`` because this repo already has
-an ``app/`` Python package (FastAPI).
+Free Gradio Spaces run on ZeroGPU, which requires Gradio-bound handlers to use
+``@spaces.GPU``. Do not name this file ``app.py`` (conflicts with ``app/`` package);
+``app.py`` is a thin loader that imports this module.
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ import tempfile
 import time
 from pathlib import Path
 from typing import Any
+
+import spaces
 
 _ROOT = Path(__file__).resolve().parent
 if str(_ROOT) not in sys.path:
@@ -93,8 +95,9 @@ def _format_sources(citations: list[dict[str, Any]]) -> str:
     return "\n\n---\n### Sources\n\n" + citations_markdown(citations)
 
 
+@spaces.GPU(duration=120)
 def chat(message: str, history: list[dict[str, str]]):
-    """Stream an answer into the Gradio chatbot (messages format)."""
+    """Stream an answer; ``@spaces.GPU`` required for ZeroGPU free Spaces."""
 
     from ui.client import ApiClient, ApiError
 
@@ -145,7 +148,10 @@ def chat(message: str, history: list[dict[str, str]]):
         yield history
 
 
+@spaces.GPU(duration=300)
 def ingest(ids_text: str, query: str, max_results: float | int) -> str:
+    """Ingest papers; ``@spaces.GPU`` so ZeroGPU detects a bound GPU handler."""
+
     from ui.client import ApiClient, ApiError
 
     _ensure_api()
@@ -207,7 +213,7 @@ def build_demo():
             go.click(ingest, inputs=[ids_box, query_box, max_box], outputs=result)
 
         gr.Markdown(
-            "_Free Gradio Space: FastAPI runs beside this UI. "
+            "_Free Gradio ZeroGPU Space: FastAPI runs beside this UI. "
             "Set `HUGGINGFACE_API_KEY` in Space secrets for the default LLM._"
         )
     return demo
@@ -217,4 +223,4 @@ _ensure_api()
 demo = build_demo()
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(ssr_mode=False)
