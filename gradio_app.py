@@ -95,12 +95,16 @@ def _format_sources(citations: list[dict[str, Any]]) -> str:
     return "\n\n---\n### Sources\n\n" + citations_markdown(citations)
 
 
-@spaces.GPU(duration=60)
 def chat(message: str, history: list[dict[str, str]]):
     """Stream an answer for ``gr.ChatInterface``.
 
     ChatInterface expects each yield to be the **assistant message string**
-    (not a full history list). ``@spaces.GPU`` is required on ZeroGPU Spaces.
+    (not a full history list).
+
+    Intentionally **not** wrapped in ``@spaces.GPU``: chat only HTTP-calls the
+    local FastAPI sidecar. Running it on a ZeroGPU worker burns quota and the
+    worker often dies mid-SSE (``incomplete chunked read``). Ingest stays
+    GPU-decorated so ZeroGPU still detects a bound handler at startup.
     """
 
     from ui.client import ApiClient, ApiError
@@ -110,6 +114,18 @@ def chat(message: str, history: list[dict[str, str]]):
     yield "_Retrieving…_"
 
     client = ApiClient()
+
+    def _render(payload: dict[str, Any]) -> str:
+        answer = str(payload.get("answer") or "")
+        citations = list(payload.get("citations") or [])
+        if payload.get("refused"):
+            prefix = "_Low confidence / refused._\n\n"
+        elif payload.get("confidence") is not None:
+            prefix = f"_confidence `{float(payload['confidence']):.3f}`_\n\n"
+        else:
+            prefix = ""
+        return prefix + (answer or "_Empty answer._") + _format_sources(citations)
+
     answer = ""
     citations: list[dict[str, Any]] = []
     prefix = ""
@@ -123,7 +139,7 @@ def chat(message: str, history: list[dict[str, str]]):
                 if refused:
                     prefix = "_Low confidence / refused._\n\n"
                 elif conf is not None:
-                    prefix = f"_confidence `{conf}`_\n\n"
+                    prefix = f"_confidence `{float(conf):.3f}`_\n\n"
                 yield prefix + (answer or "_Generating…_")
             elif kind == "token":
                 answer += str(event.get("text") or "")
@@ -132,8 +148,14 @@ def chat(message: str, history: list[dict[str, str]]):
             yield prefix + "_Empty answer._" + _format_sources(citations)
     except ApiError as exc:
         yield f"**API error:** {exc}"
-    except Exception as exc:  # noqa: BLE001
-        yield f"**Error:** {exc}"
+    except Exception as stream_exc:  # noqa: BLE001 - SSE often dies on Spaces proxies
+        yield "_Stream interrupted — retrying without streaming…_"
+        try:
+            yield _render(client.query(message))
+        except Exception as fallback_exc:  # noqa: BLE001
+            yield (
+                f"**Error:** {stream_exc}\n\n" f"_Non-stream fallback also failed:_ {fallback_exc}"
+            )
 
 
 @spaces.GPU(duration=120)

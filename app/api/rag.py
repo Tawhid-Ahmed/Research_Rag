@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from app.api.schemas import Citation
 from app.llm.types import ChatMessage
 from app.retrieval.models import Hit, RetrievalResult
@@ -10,6 +12,16 @@ REFUSAL_MESSAGE = (
     "I could not find sufficiently relevant passages in the indexed papers "
     "to answer confidently. Try rephrasing the question or ingesting more papers."
 )
+
+
+def _sigmoid(value: float) -> float:
+    """Map unbounded cross-encoder logits into ``(0, 1)`` for confidence."""
+
+    # Stable sigmoid for large |x|.
+    if value >= 0:
+        return 1.0 / (1.0 + math.exp(-value))
+    exp_x = math.exp(value)
+    return exp_x / (1.0 + exp_x)
 
 
 def hits_to_citations(hits: list[Hit], *, excerpt_chars: int = 240) -> list[Citation]:
@@ -36,13 +48,19 @@ def hits_to_citations(hits: list[Hit], *, excerpt_chars: int = 240) -> list[Cita
 
 
 def confidence_from_hits(hits: list[Hit]) -> float:
-    """Use the best reranker (or fused) score as answer confidence."""
+    """Best-hit confidence in ``[0, 1]`` for the refuse guardrail.
+
+    ``cross-encoder/ms-marco-MiniLM-L-6-v2`` returns raw logits (often negative
+    even for on-topic chunks). Comparing those logits to a 0–1 threshold caused
+    false refusals; we sigmoid the score so ``min_confidence_score`` stays a
+    probability floor.
+    """
 
     if not hits:
         return 0.0
     best = hits[0]
     score = best.rerank_score if best.rerank_score is not None else best.score
-    return float(score)
+    return _sigmoid(float(score))
 
 
 def should_refuse(confidence: float, min_confidence: float) -> bool:

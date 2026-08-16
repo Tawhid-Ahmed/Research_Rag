@@ -29,16 +29,26 @@ def _hit(chunk_id: str, text: str, score: float) -> Hit:
 
 
 def test_hits_to_citations_and_confidence() -> None:
-    hits = [_hit("1706.03762::0", "attention is useful", 0.8)]
+    hits = [_hit("1706.03762::0", "attention is useful", 2.0)]
     citations = hits_to_citations(hits)
     assert citations[0].arxiv_id == "1706.03762"
     assert citations[0].page_start == 1
-    assert confidence_from_hits(hits) == 0.8
+    # Confidence is sigmoid(logit); citations keep the raw score.
+    assert citations[0].score == 2.0
+    assert abs(confidence_from_hits(hits) - 0.880797) < 1e-5
+
+
+def test_confidence_maps_negative_logits() -> None:
+    # Typical on-topic ms-marco MiniLM scores are negative logits ~ -2.
+    hits = [_hit("1706.03762::0", "scaled dot-product attention", -2.2)]
+    conf = confidence_from_hits(hits)
+    assert 0.09 < conf < 0.11
+    assert should_refuse(conf, 0.05) is False
 
 
 def test_should_refuse_below_threshold() -> None:
-    assert should_refuse(0.1, 0.2) is True
-    assert should_refuse(0.5, 0.2) is False
+    assert should_refuse(0.01, 0.05) is True
+    assert should_refuse(0.1, 0.05) is False
 
 
 def test_build_rag_messages_includes_numbered_context() -> None:

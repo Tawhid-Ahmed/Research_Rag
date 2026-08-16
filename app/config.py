@@ -74,8 +74,8 @@ class Settings(BaseSettings):
     chunk_overlap: int = Field(default=64)
     retrieval_top_k: int = Field(default=20)
     rerank_top_k: int = Field(default=5)
-    # Below this reranker score the app refuses to answer (low-confidence guardrail).
-    min_confidence_score: float = Field(default=0.2)
+    # Probability floor after sigmoid(cross-encoder logit). ~0.05 ≈ logit -2.9.
+    min_confidence_score: float = Field(default=0.05)
 
     # --- Vector store ------------------------------------------------------
     vector_store: VectorStore = Field(default=VectorStore.CHROMA)
