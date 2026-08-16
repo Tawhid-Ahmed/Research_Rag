@@ -95,21 +95,24 @@ def _format_sources(citations: list[dict[str, Any]]) -> str:
     return "\n\n---\n### Sources\n\n" + citations_markdown(citations)
 
 
-@spaces.GPU(duration=120)
+@spaces.GPU(duration=60)
 def chat(message: str, history: list[dict[str, str]]):
-    """Stream an answer; ``@spaces.GPU`` required for ZeroGPU free Spaces."""
+    """Stream an answer for ``gr.ChatInterface``.
+
+    ChatInterface expects each yield to be the **assistant message string**
+    (not a full history list). ``@spaces.GPU`` is required on ZeroGPU Spaces.
+    """
 
     from ui.client import ApiClient, ApiError
 
+    _ = history  # ChatInterface manages history; keep signature for Gradio.
     _ensure_api()
-    history = list(history or [])
-    history.append({"role": "user", "content": message})
-    history.append({"role": "assistant", "content": "_Retrieving…_"})
-    yield history
+    yield "_Retrieving…_"
 
     client = ApiClient()
     answer = ""
     citations: list[dict[str, Any]] = []
+    prefix = ""
     try:
         for event in client.stream_query(message):
             kind = event.get("type")
@@ -117,38 +120,23 @@ def chat(message: str, history: list[dict[str, str]]):
                 citations = list(event.get("citations") or [])
                 refused = bool(event.get("refused"))
                 conf = event.get("confidence")
-                prefix = ""
                 if refused:
                     prefix = "_Low confidence / refused._\n\n"
                 elif conf is not None:
                     prefix = f"_confidence `{conf}`_\n\n"
-                history[-1] = {
-                    "role": "assistant",
-                    "content": prefix + (answer or "_Generating…_"),
-                }
-                yield history
+                yield prefix + (answer or "_Generating…_")
             elif kind == "token":
                 answer += str(event.get("text") or "")
-                history[-1] = {
-                    "role": "assistant",
-                    "content": answer + _format_sources(citations),
-                }
-                yield history
+                yield prefix + answer + _format_sources(citations)
         if not answer:
-            history[-1] = {
-                "role": "assistant",
-                "content": "_Empty answer._" + _format_sources(citations),
-            }
-            yield history
+            yield prefix + "_Empty answer._" + _format_sources(citations)
     except ApiError as exc:
-        history[-1] = {"role": "assistant", "content": f"**API error:** {exc}"}
-        yield history
+        yield f"**API error:** {exc}"
     except Exception as exc:  # noqa: BLE001
-        history[-1] = {"role": "assistant", "content": f"**Error:** {exc}"}
-        yield history
+        yield f"**Error:** {exc}"
 
 
-@spaces.GPU(duration=300)
+@spaces.GPU(duration=120)
 def ingest(ids_text: str, query: str, max_results: float | int) -> str:
     """Ingest papers; ``@spaces.GPU`` so ZeroGPU detects a bound GPU handler."""
 
