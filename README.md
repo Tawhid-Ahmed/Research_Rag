@@ -156,8 +156,11 @@ CI runs all of the above plus a Docker build on every push/PR
 
 ## Live demo
 
-Deployed free on Hugging Face Spaces — see [`huggingface/`](huggingface/) for the
-Space Dockerfile and deployment notes. _(Link added once deployed.)_
+Free **Gradio** Space (Docker is paid on HF for many accounts): create a Space with
+SDK **Gradio → Blank**, app file [`gradio_app.py`](gradio_app.py). Details:
+[`huggingface/README.md`](huggingface/README.md).
+
+_(Public URL added once the Space is live.)_
 
 ## License
 
