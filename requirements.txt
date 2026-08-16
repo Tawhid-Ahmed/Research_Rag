@@ -27,7 +27,8 @@ chromadb==0.5.23
 rank-bm25==0.2.2
 
 # --- Optional Postgres + pgvector profile ---
-psycopg[binary]==3.2.3
+# 3.2.3 has no wheels for Python 3.13+/3.14 (Streamlit Cloud default).
+psycopg[binary]==3.2.13
 pgvector==0.3.6
 
 # --- LLM providers (optional paths; imported lazily) ---
