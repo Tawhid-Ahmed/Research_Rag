@@ -85,9 +85,7 @@ def aggregate(cases: list[CaseRetrievalScores], *, k: int) -> AggregatedScores:
 
     n = len(cases)
     if n == 0:
-        return AggregatedScores(
-            hit_rate=0.0, recall_at_k=0.0, mrr=0.0, purity_at_k=0.0, n=0, k=k
-        )
+        return AggregatedScores(hit_rate=0.0, recall_at_k=0.0, mrr=0.0, purity_at_k=0.0, n=0, k=k)
     return AggregatedScores(
         hit_rate=sum(1.0 for c in cases if c.hit) / n,
         recall_at_k=sum(c.recall for c in cases) / n,
