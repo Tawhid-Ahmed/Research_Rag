@@ -51,6 +51,15 @@ class Citation(BaseModel):
     excerpt: str = ""
 
 
+class TokenUsage(BaseModel):
+    """Token counts and estimated USD for the LLM generation."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+
+
 class QueryResponse(BaseModel):
     """Non-streaming query result."""
 
@@ -61,3 +70,4 @@ class QueryResponse(BaseModel):
     confidence: float = 0.0
     provider: str = ""
     model: str = ""
+    usage: TokenUsage | None = None

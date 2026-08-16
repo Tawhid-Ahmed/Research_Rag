@@ -17,7 +17,8 @@ with a free live demo.
   Eval shows last-query stats plus the latest `python -m eval` report.
 - **Citations + guardrail** — answers cite source page/section and refuse to
   answer when retrieval confidence is low.
-- **Streaming answers** with token/cost tracking and Langfuse tracing.
+- **Streaming answers** with token/cost estimates on `/query`; optional Langfuse
+  tracing when `LANGFUSE_*` keys are set.
 - **Pluggable LLMs** — OpenAI, Anthropic, Hugging Face Inference, or local
   Ollama via a single provider abstraction. Free/open default path costs $0.
 - **Eval harness** — golden Q/A, retrieval ablation (dense vs hybrid vs

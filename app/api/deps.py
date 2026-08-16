@@ -11,6 +11,7 @@ from app.config import Settings, get_settings
 from app.ingest.pipeline import IngestionPipeline, build_default_pipeline
 from app.llm.factory import build_provider
 from app.llm.interfaces import ChatProvider
+from app.observability.tracing import Observability, build_observability
 from app.retrieval.pipeline import RetrievalPipeline, build_default_retriever
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]
@@ -19,6 +20,7 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 _ingest_factory: Callable[[Settings], IngestionPipeline] = build_default_pipeline
 _retriever_factory: Callable[[Settings], RetrievalPipeline] = build_default_retriever
 _llm_factory: Callable[[Settings], ChatProvider] = build_provider
+_observability_factory: Callable[[Settings], Observability] = build_observability
 
 
 def get_ingest_pipeline(settings: SettingsDep) -> IngestionPipeline:
@@ -33,6 +35,11 @@ def get_llm(settings: SettingsDep) -> ChatProvider:
     return _llm_factory(settings)
 
 
+def get_observability(settings: SettingsDep) -> Observability:
+    return _observability_factory(settings)
+
+
 IngestPipelineDep = Annotated[IngestionPipeline, Depends(get_ingest_pipeline)]
 RetrieverDep = Annotated[RetrievalPipeline, Depends(get_retriever)]
 LLMDep = Annotated[ChatProvider, Depends(get_llm)]
+ObservabilityDep = Annotated[Observability, Depends(get_observability)]

@@ -11,7 +11,7 @@ from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Repository root: ``.../arxiv-rag``. Used to resolve default data paths.
@@ -91,7 +91,8 @@ class Settings(BaseSettings):
     # --- Observability -----------------------------------------------------
     langfuse_public_key: str | None = Field(default=None)
     langfuse_secret_key: str | None = Field(default=None)
-    langfuse_host: str = Field(default="https://cloud.langfuse.com")
+    # Langfuse docs call this LANGFUSE_BASE_URL; we accept both names.
+    langfuse_host: str = Field(default="https://cloud.langfuse.com", validation_alias=AliasChoices("LANGFUSE_HOST", "LANGFUSE_BASE_URL"))
 
 
 @lru_cache
