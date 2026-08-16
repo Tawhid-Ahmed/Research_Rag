@@ -2,13 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
-    branches: [main]
-
-defaults:
-  run:
-    working-directory: arxiv-rag
+    branches: [master, main]
 
 jobs:
   lint-type-test:
@@ -22,7 +18,9 @@ jobs:
         with:
           python-version: "3.10"
           cache: pip
-          cache-dependency-path: arxiv-rag/requirements-dev.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
@@ -39,10 +37,16 @@ jobs:
         run: pytest --cov=app --cov-report=term-missing
 
   docker-build:
-    name: Docker build
+    name: Docker build + compose config
     runs-on: ubuntu-latest
     needs: lint-type-test
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate compose files
+        run: |
+          docker compose config >/dev/null
+          docker compose --profile pgvector --profile ollama config >/dev/null
+
       - name: Build image
         run: docker build -t arxiv-rag:ci .

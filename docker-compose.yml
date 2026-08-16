@@ -1,10 +1,16 @@
 # One-command local stack for the arXiv RAG Assistant.
 #
-#   docker compose up                       # api + ui (Chroma, free/open path)
-#   docker compose --profile pgvector up    # also start Postgres + pgvector
-#   docker compose --profile ollama up      # also start local Ollama LLM
+#   cp .env.example .env
+#   docker compose up --build                 # api + ui (Chroma)
+#   docker compose --profile pgvector up      # + Postgres/pgvector sidecar
+#   docker compose --profile ollama up        # + Ollama container
 #
-# Copy .env.example to .env first to override defaults.
+# Ollama-in-compose tip: set in .env
+#   LLM_PROVIDER=ollama
+#   LLM_MODEL=llama3.2
+#   OLLAMA_BASE_URL=http://ollama:11434
+#
+# Host Ollama (no profile): OLLAMA_BASE_URL=http://host.docker.internal:11434
 
 services:
   api:
@@ -15,14 +21,32 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - path: .env
+        required: false
+    environment:
+      # Sensible in-compose defaults; .env still wins when set.
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      PDF_CACHE_DIR: /app/data/pdfs
+      DATA_DIR: /app/data
+      # When the ollama profile is up, API reaches it on the compose network.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      # Sidecar DSN for the pgvector profile (app still uses Chroma today).
+      POSTGRES_DSN: ${POSTGRES_DSN:-postgresql://rag:rag@postgres:5432/arxiv_rag}
     volumes:
       - ./data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 3
+      retries: 10
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+      ollama:
+        condition: service_started
+        required: false
 
   ui:
     build:
@@ -32,13 +56,17 @@ services:
     ports:
       - "8501:8501"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
-      - API_BASE_URL=http://api:8000
+      API_BASE_URL: http://api:8000
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   # --- Optional production-style Postgres + pgvector ---
+  # Brings up a pgvector-ready database. The app indexes into Chroma today;
+  # VECTOR_STORE=pgvector is reserved for a later store backend.
   postgres:
     image: pgvector/pgvector:pg16
     profiles: ["pgvector"]
@@ -57,6 +85,7 @@ services:
       retries: 5
 
   # --- Optional local LLM via Ollama ---
+  # After start: docker compose exec ollama ollama pull llama3.2
   ollama:
     image: ollama/ollama:latest
     profiles: ["ollama"]
@@ -64,6 +93,12 @@ services:
       - "11434:11434"
     volumes:
       - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
 volumes:
   pgdata:

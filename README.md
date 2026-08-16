@@ -108,14 +108,33 @@ python -m eval --report eval/reports/latest.md
 
 ```bash
 cd arxiv-rag
-cp .env.example .env
-docker compose up                     # api + ui (free/open path, Chroma)
-docker compose --profile pgvector up  # add Postgres + pgvector
-docker compose --profile ollama up    # add local Ollama LLM
+cp .env.example .env   # optional; compose works without it
+
+docker compose up --build                 # api + ui (Chroma)
+docker compose --profile pgvector up      # also starts Postgres + pgvector
+docker compose --profile ollama up        # also starts Ollama
 ```
 
 - API: http://localhost:8000 — `/health`, `/ingest`, `/query` (SSE when `stream=true`)
 - UI: http://localhost:8501 — Chat (streaming + citations), Admin (ingest), Eval (live stats + harness report)
+
+**Profiles (honest):**
+
+| Profile | What starts | App behavior today |
+|---------|-------------|--------------------|
+| (default) | `api` + `ui` | Chroma on `./data` |
+| `pgvector` | + Postgres 16 / pgvector | DB is healthy and reachable; app still uses **Chroma** (`VECTOR_STORE=pgvector` is reserved) |
+| `ollama` | + Ollama | Set `LLM_PROVIDER=ollama`, `LLM_MODEL=…`, `OLLAMA_BASE_URL=http://ollama:11434` in `.env`, then `docker compose exec ollama ollama pull <model>` |
+
+Local API health smoke (requires Docker Desktop running):
+
+```bash
+# Windows PowerShell
+./scripts/compose_smoke.ps1
+
+# macOS / Linux
+bash scripts/compose_smoke.sh
+```
 
 ## Configuration
 
