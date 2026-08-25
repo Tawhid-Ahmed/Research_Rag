@@ -9,21 +9,20 @@ AI/ML papers and answers questions with **inline citations**. Built like real
 software: typed, tested, linted, containerized, evaluated, traced, and deployed
 with a free live demo.
 
-> **Status:** scaffold in place. Ingestion, retrieval, LLM, API, UI, and the
-> eval harness are implemented in subsequent build steps (see
-> [`docs/PLAN.md`](../docs/PLAN.md)).
-
-## Features (target)
+## Features
 
 - **Hybrid retrieval** — BM25 + dense (`sentence-transformers`) with a
   cross-encoder reranker, plus an ablation showing metric gains.
+- **Streamlit UI** — Chat streams answers with sources; Admin ingests papers;
+  Eval shows last-query stats plus the latest `python -m eval` report.
 - **Citations + guardrail** — answers cite source page/section and refuse to
   answer when retrieval confidence is low.
-- **Streaming answers** with token/cost tracking and Langfuse tracing.
+- **Streaming answers** with token/cost estimates on `/query`; optional Langfuse
+  tracing when `LANGFUSE_*` keys are set.
 - **Pluggable LLMs** — OpenAI, Anthropic, Hugging Face Inference, or local
   Ollama via a single provider abstraction. Free/open default path costs $0.
-- **Eval harness** — retrieval metrics (recall@k, MRR, hit-rate) + RAGAS answer
-  quality, with a before/after report.
+- **Eval harness** — golden Q/A, retrieval ablation (dense vs hybrid vs
+  rerank: hit-rate / recall@k / MRR), optional RAGAS (`--with-ragas`).
 - **Ops** — one-command `docker compose up`, GitHub Actions CI, pinned deps, and
   a free Hugging Face Spaces live demo.
 
@@ -83,24 +82,59 @@ python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\act
 pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env                                # optional; defaults work
 
-# Run the API
+# Ingest a paper, then retrieve (working today)
+python -m app.ingest --ids 1706.03762 --max-results 1
+python -m app.retrieval --query "What is multi-head attention?"
+
+# Smoke-test the configured LLM (default: Hugging Face)
+python -m app.llm --prompt "Say hello in one sentence."
+python -m app.llm --prompt "Say hello." --stream --sse
+
+# Run the API ( /health, /ingest, /query )
 uvicorn app.api.main:app --reload
-# In another shell, run the UI
+# Example:
+# curl -X POST http://localhost:8000/query -H "Content-Type: application/json" ^
+#   -d "{\"question\": \"What is multi-head attention?\"}"
+
+# In another shell, run the UI (Chat / Admin ingest / Eval stats)
 streamlit run ui/app.py
+# Set LLM_PROVIDER=ollama (and LLM_MODEL) in the API process if using local Ollama
+
+# Retrieval ablation report (needs ingested papers; optional --with-ragas)
+python -m eval --report eval/reports/latest.md
 ```
 
 ### Docker Compose
 
 ```bash
 cd arxiv-rag
-cp .env.example .env
-docker compose up                     # api + ui (free/open path, Chroma)
-docker compose --profile pgvector up  # add Postgres + pgvector
-docker compose --profile ollama up    # add local Ollama LLM
+cp .env.example .env   # optional; compose works without it
+
+docker compose up --build                 # api + ui (Chroma)
+docker compose --profile pgvector up      # also starts Postgres + pgvector
+docker compose --profile ollama up        # also starts Ollama
 ```
 
-- API: http://localhost:8000 (`/health`, later `/query`, `/ingest`)
-- UI: http://localhost:8501
+- API: http://localhost:8000 — `/health`, `/ingest`, `/query` (SSE when `stream=true`)
+- UI: http://localhost:8501 — Chat (streaming + citations), Admin (ingest), Eval (live stats + harness report)
+
+**Profiles (honest):**
+
+| Profile | What starts | App behavior today |
+|---------|-------------|--------------------|
+| (default) | `api` + `ui` | Chroma on `./data` |
+| `pgvector` | + Postgres 16 / pgvector | DB is healthy and reachable; app still uses **Chroma** (`VECTOR_STORE=pgvector` is reserved) |
+| `ollama` | + Ollama | Set `LLM_PROVIDER=ollama`, `LLM_MODEL=…`, `OLLAMA_BASE_URL=http://ollama:11434` in `.env`, then `docker compose exec ollama ollama pull <model>` |
+
+Local API health smoke (requires Docker Desktop running):
+
+```bash
+# Windows PowerShell
+./scripts/compose_smoke.ps1
+
+# macOS / Linux
+bash scripts/compose_smoke.sh
+```
 
 ## Configuration
 

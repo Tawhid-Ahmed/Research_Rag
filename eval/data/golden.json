@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "description": "Golden Q/A for the demo corpus (Attention Is All You Need, arXiv 1706.03762). Ingest that paper before running retrieval eval.",
+  "cases": [
+    {
+      "id": "multi_head_attention",
+      "question": "What is multi-head attention and why use multiple heads?",
+      "reference_answer": "Multi-head attention projects queries, keys, and values into several subspaces, runs attention in parallel, then concatenates the outputs so the model can jointly attend to information from different representation subspaces.",
+      "relevant_arxiv_ids": ["1706.03762"],
+      "keywords": ["multi-head", "attention", "subspaces"]
+    },
+    {
+      "id": "scaled_dot_product",
+      "question": "Why does the Transformer scale the dot products of queries and keys by the square root of the key dimension?",
+      "reference_answer": "Without scaling, large dot products push the softmax into regions with extremely small gradients. Dividing by sqrt(d_k) keeps the variance of the dot products stable and improves training.",
+      "relevant_arxiv_ids": ["1706.03762"],
+      "keywords": ["scale", "softmax", "d_k"]
+    },
+    {
+      "id": "positional_encoding",
+      "question": "How does the Transformer inject sequence order without recurrence?",
+      "reference_answer": "It adds positional encodings (sine and cosine functions of different frequencies) to the input embeddings so the model can use relative or absolute position information.",
+      "relevant_arxiv_ids": ["1706.03762"],
+      "keywords": ["positional", "encoding", "sine"]
+    },
+    {
+      "id": "encoder_decoder_attn",
+      "question": "In the Transformer encoder-decoder, what do the decoder queries attend to in the encoder-decoder attention layers?",
+      "reference_answer": "In encoder-decoder attention, queries come from the previous decoder layer while keys and values come from the encoder output, allowing every decoder position to attend over all encoder positions.",
+      "relevant_arxiv_ids": ["1706.03762"],
+      "keywords": ["encoder", "decoder", "queries", "keys"]
+    }
+  ]
+}
